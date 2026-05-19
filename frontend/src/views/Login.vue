@@ -1,12 +1,11 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import Button from '@/components/ui/Button.vue'
 import Card from '@/components/ui/Card.vue'
 import CardHeader from '@/components/ui/CardHeader.vue'
 import CardTitle from '@/components/ui/CardTitle.vue'
 import CardContent from '@/components/ui/CardContent.vue'
-import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, Github, Sparkles } from 'lucide-vue-next'
+import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight } from 'lucide-vue-next'
 
 const router = useRouter()
 
