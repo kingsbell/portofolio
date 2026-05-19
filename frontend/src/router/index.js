@@ -15,7 +15,7 @@ const router = createRouter({
       children: [
         {
           path: '',
-          redirect: '/dashboard'
+          redirect: '/login'
         },
         {
           path: 'dashboard',
