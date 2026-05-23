@@ -29,29 +29,54 @@ const router = createRouter({
           component: () => import('@/views/Dashboard.vue')
         },
         {
-          path: 'contacts',
-          name: 'Contacts',
+          path: 'test-suites',
+          name: 'TestSuite',
           component: () => import('@/views/Contacts.vue')
         },
         {
-          path: 'companies',
-          name: 'Companies',
+          path: 'test-runs',
+          name: 'TestRun',
           component: () => import('@/views/Companies.vue')
         },
         {
-          path: 'deals',
-          name: 'Deals',
+          path: 'api-testing',
+          name: 'ApiTesting',
           component: () => import('@/views/Deals.vue')
         },
         {
-          path: 'tasks',
-          name: 'Tasks',
+          path: 'ui-testing',
+          name: 'UiTesting',
           component: () => import('@/views/Tasks.vue')
+        },
+        {
+          path: 'performance',
+          name: 'Performance',
+          component: () => import('@/views/Placeholder.vue')
+        },
+        {
+          path: 'defects',
+          name: 'Defects',
+          component: () => import('@/views/Placeholder.vue')
+        },
+        {
+          path: 'pipelines',
+          name: 'Pipelines',
+          component: () => import('@/views/Placeholder.vue')
+        },
+        {
+          path: 'environments',
+          name: 'Environments',
+          component: () => import('@/views/Placeholder.vue')
         },
         {
           path: 'reports',
           name: 'Reports',
           component: () => import('@/views/Reports.vue')
+        },
+        {
+          path: 'logs',
+          name: 'Logs',
+          component: () => import('@/views/Placeholder.vue')
         },
         {
           path: 'billing',

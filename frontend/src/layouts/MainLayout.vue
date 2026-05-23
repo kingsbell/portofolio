@@ -5,17 +5,20 @@ import Navbar from '@/components/Navbar.vue'
 import Footer from '@/components/Footer.vue'
 import {
   LayoutDashboard,
-  Users,
-  Building2,
-  TrendingUp,
-  CheckSquare,
-  BarChart3,
+  FlaskConical,
+  CirclePlay,
+  Network,
+  MousePointerClick,
+  Gauge,
+  Bug,
+  GitFork,
+  Cpu,
+  Activity,
+  FileText,
   Settings,
-  BookOpen,
   ChevronLeft,
   ChevronRight,
-  CreditCard,
-  Zap,
+  Zap
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -24,14 +27,17 @@ const isMobile = ref(false)
 
 const navigation = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-  { name: 'Contacts', path: '/contacts', icon: Users },
-  { name: 'Companies', path: '/companies', icon: Building2 },
-  { name: 'Deals', path: '/deals', icon: TrendingUp },
-  { name: 'Tasks', path: '/tasks', icon: CheckSquare },
-  { name: 'Reports', path: '/reports', icon: BarChart3 },
-  { name: 'Billing', path: '/billing', icon: CreditCard },
-  { name: 'Settings', path: '/settings', icon: Settings },
-  { name: 'Docs', path: '/docs', icon: BookOpen }
+  { name: 'Test Suites', path: '/test-suites', icon: FlaskConical },
+  { name: 'Test Runs', path: '/test-runs', icon: CirclePlay },
+  { name: 'API Testing', path: '/api-testing', icon: Network },
+  { name: 'UI Testing', path: '/ui-testing', icon: MousePointerClick },
+  { name: 'Performance', path: '/performance', icon: Gauge },
+  { name: 'Defects', path: '/defects', icon: Bug },
+  { name: 'Pipelines', path: '/pipelines', icon: GitFork },
+  { name: 'Environments', path: '/environments', icon: Cpu },
+  { name: 'Reports', path: '/reports', icon: Activity },
+  { name: 'Logs', path: '/logs', icon: FileText },
+  { name: 'Settings', path: '/settings', icon: Settings }
 ]
 
 const checkMobile = () => {
@@ -74,14 +80,14 @@ onUnmounted(() => {
       isMobile && !sidebarOpen ? '-translate-x-full' : 'translate-x-0'
     ]">
       <div class="p-6 md:py-8 lg:p-4 border-b flex items-center" :class="sidebarOpen ? 'justify-between' : 'justify-center'">
-        <div v-if="sidebarOpen" class="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-          <Zap />
+        <div class="flex items-center gap-2">
+          <div class="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground" :class="{ 'mx-auto': !sidebarOpen }">
+            <Zap />
+          </div>
+          <h3 v-if="sidebarOpen" class="text-sm font-semibold">QA Automation</h3>
         </div>
-        <h3 v-if="sidebarOpen" class="text-sm font-semibold">QA Automation Tools</h3>
-        <button @click="toggleSidebar" class="p-2 hover:bg-accent rounded-md hidden lg:block"
-          :class="{ 'mx-auto': !sidebarOpen }">
-          <ChevronRight v-if="!sidebarOpen" :size="20" />
-          <ChevronLeft v-else :size="20" />
+        <button v-if="sidebarOpen" @click="toggleSidebar" class="p-2 hover:bg-accent rounded-md hidden lg:block">
+          <ChevronLeft :size="20" />
         </button>
       </div>
 
