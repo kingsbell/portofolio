@@ -3,7 +3,7 @@ import MainLayout from '@/layouts/MainLayout.vue'
 import { authState, isAuthenticated } from '@/lib/auth'
 
 const router = createRouter({
-  history: createWebHistory('/material-dashboard-shadcn-vue/'),
+  history: createWebHistory('/automate/'),
   routes: [
     {
       path: '/login',
