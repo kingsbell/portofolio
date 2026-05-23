@@ -14,7 +14,8 @@ import {
   BookOpen,
   ChevronLeft,
   ChevronRight,
-  CreditCard
+  CreditCard,
+  Zap,
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -69,11 +70,14 @@ onUnmounted(() => {
 
     <aside :class="[
       'bg-card border-r transition-all duration-300 flex flex-col fixed lg:relative h-full z-50 overflow-hidden',
-      isMobile ? (sidebarOpen ? 'w-64' : 'w-0') : (sidebarOpen ? 'w-64' : 'w-16'),
+      isMobile ? (sidebarOpen ? 'w-64' : 'w-0') : (sidebarOpen ? 'w-64' : 'w-20'),
       isMobile && !sidebarOpen ? '-translate-x-full' : 'translate-x-0'
     ]">
-      <div class="p-4 border-b flex items-center justify-between">
-        <h3 v-if="sidebarOpen" class="text-sm font-semibold">Material Shadcn Vue</h3>
+      <div class="p-6 md:py-8 lg:p-4 border-b flex items-center" :class="sidebarOpen ? 'justify-between' : 'justify-center'">
+        <div v-if="sidebarOpen" class="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
+          <Zap />
+        </div>
+        <h3 v-if="sidebarOpen" class="text-sm font-semibold">QA Automation Tools</h3>
         <button @click="toggleSidebar" class="p-2 hover:bg-accent rounded-md hidden lg:block"
           :class="{ 'mx-auto': !sidebarOpen }">
           <ChevronRight v-if="!sidebarOpen" :size="20" />
@@ -83,7 +87,8 @@ onUnmounted(() => {
 
       <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
         <router-link v-for="item in navigation" :key="item.path" :to="item.path" @click="closeSidebarOnMobile" :class="[
-          'flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm',
+          'flex items-center rounded-lg transition-colors text-sm py-2',
+          sidebarOpen ? 'px-3 gap-2 justify-start' : 'justify-center px-0 w-12 mx-auto',
           route.path === item.path
             ? 'bg-primary text-primary-foreground'
             : 'hover:bg-accent hover:text-accent-foreground'
