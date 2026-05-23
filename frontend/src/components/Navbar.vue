@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Search, Menu, User, CreditCard, LogOut, ChevronDown } from 'lucide-vue-next'
+import { Search, Menu, User, CreditCard, LogOut, ChevronDown, Play, Bell } from 'lucide-vue-next'
 import { currentUser, authState } from '@/lib/auth'
 
 defineProps({
@@ -61,14 +61,25 @@ const handleLogout = async () => {
               <input
                 v-model="searchQuery"
                 type="search"
-                placeholder="Search..."
-                class="pl-10 pr-4 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-primary w-64 lg:w-96"
+                placeholder="Cari test case, suite, atau run..."
+                class="pl-10 pr-4 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-primary w-64 lg:w-96 text-sm"
               />
             </div>
           </form>
         </div>
 
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-3">
+          <!-- Bell Notification Icon -->
+          <button class="p-2 hover:bg-accent rounded-full text-muted-foreground transition-colors" aria-label="Notifications">
+            <Bell :size="20" />
+          </button>
+
+          <!-- Run Suite Button -->
+          <button class="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-1.5 hover:bg-primary/95 font-semibold text-sm shadow-sm transition-all">
+            <Play :size="14" class="fill-current" />
+            <span>Run Suite</span>
+          </button>
+
           <button
             @click="onToggleSidebar"
             class="hidden lg:block p-2 hover:bg-accent rounded-md"
@@ -80,7 +91,7 @@ const handleLogout = async () => {
           <div class="relative">
             <button
               @click="toggleAccountDropdown"
-              class="flex items-center gap-2 px-3 py-2 hover:bg-accent rounded-md"
+              class="flex items-center gap-2 px-2 py-1.5 hover:bg-accent rounded-md"
               aria-label="Account menu"
             >
               <div class="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
