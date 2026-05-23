@@ -8,7 +8,14 @@ const app = express();
 const port = process.env.PORT || 5001;
 
 app.use(cors({
-    origin: 'http://localhost:5000',
+    origin: (origin, callback) => {
+        // Izinkan request tanpa origin (seperti Postman) atau dari localhost dengan port mana saja
+        if (!origin || origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true
 }));
 

@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import MainLayout from '@/layouts/MainLayout.vue'
+import { authState, isAuthenticated } from '@/lib/auth'
 
 const router = createRouter({
   history: createWebHistory('/material-dashboard-shadcn-vue/'),
@@ -65,6 +66,21 @@ const router = createRouter({
       ]
     }
   ]
+})
+
+router.beforeEach(async (to, from, next) => {
+  // Hanya lakukan pengecekan status login ke backend jika status lokal belum terautentikasi
+  if (!isAuthenticated.value) {
+    await authState.check()
+  }
+
+  if (to.name !== 'Login' && !isAuthenticated.value) {
+    next({ name: 'Login' })
+  } else if (to.name === 'Login' && isAuthenticated.value) {
+    next({ name: 'Dashboard' })
+  } else {
+    next()
+  }
 })
 
 export default router

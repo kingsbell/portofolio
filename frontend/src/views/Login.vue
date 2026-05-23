@@ -6,6 +6,7 @@ import CardHeader from '@/components/ui/CardHeader.vue'
 import CardTitle from '@/components/ui/CardTitle.vue'
 import CardContent from '@/components/ui/CardContent.vue'
 import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight } from 'lucide-vue-next'
+import { authState } from '@/lib/auth'
 
 const router = useRouter()
 
@@ -63,16 +64,13 @@ const handleLogin = async (e) => {
     if (!validateForm()) return
 
     loading.value = true
+    errors.general = ''
 
     try {
-        // Simulate API Call delay
-        await new Promise((resolve) => setTimeout(resolve, 1500))
-
-        // Simple mock authentication success
-        console.log('Login Success:', form)
+        await authState.login(form.email, form.password)
         router.push('/dashboard')
     } catch (err) {
-        errors.general = 'Invalid email or password. Please try again.'
+        errors.general = err.message || 'Invalid email or password. Please try again.'
     } finally {
         loading.value = false
     }
