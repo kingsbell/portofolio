@@ -2,10 +2,8 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import Card from '@/components/ui/Card.vue'
-import CardHeader from '@/components/ui/CardHeader.vue'
-import CardTitle from '@/components/ui/CardTitle.vue'
 import CardContent from '@/components/ui/CardContent.vue'
-import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight } from 'lucide-vue-next'
+import { Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-vue-next'
 import { authState } from '@/lib/auth'
 
 const router = useRouter()
@@ -94,24 +92,18 @@ const handleSocialLogin = (provider) => {
         <div class="flex items-center w-full justify-center relative">
 
             <div class="w-full max-w-md space-y-4 md:space-y-6 lg:space-y-8 z-10">
-                <!-- Logo/Header for Mobile views -->
-                <div class="flex flex-col items-center text-center lg:hidden space-y-1 mb-2 md:mb-4">
-                    <h1 class="text-2xl font-bold tracking-tight">Welcome</h1>
-                    <p class="text-sm text-muted-foreground">Login into you dashboard</p>
-                </div>
-
-                <div class="space-y-2 text-left hidden lg:block">
-                    <h1 class="text-3xl font-extrabold tracking-tight text-center">Welcome</h1>
-                    <p class="text-sm text-muted-foreground text-center">Login into you dashboard</p>
-                </div>
-
+        
                 <!-- Main Card Component -->
-                <Card class="border shadow-md bg-card/60 backdrop-blur-sm overflow-hidden">
-                    <CardHeader class="pb-3 md:pb-4">
-                        <CardTitle class="text-xl font-bold flex items-center gap-2">
-                            Sign In
-                        </CardTitle>
-                    </CardHeader>
+                <Card class="border shadow-md bg-card/60 backdrop-blur-sm overflow-hidden p-2 md:p-6">
+                    <!-- Logo/Header for Mobile views -->
+                    <div class="flex flex-col items-center text-center lg:hidden space-y-1 mb-2 md:mb-4 pb-6">
+                        <h1 class="text-2xl font-bold tracking-tight">Welcome</h1>
+                        <p class="text-sm text-muted-foreground">Login into you dashboard</p>
+                    </div>
+                    <div class="space-y-2 text-left hidden lg:block pb-6">
+                        <h1 class="text-3xl font-extrabold tracking-tight text-center">Welcome</h1>
+                        <p class="text-sm text-muted-foreground text-center">Login into you dashboard</p>
+                    </div>
                     <CardContent class="space-y-3 md:space-y-4 lg:space-y-5">
                         <!-- General Server/Validation Error Alert -->
                         <div v-if="errors.general"
@@ -178,8 +170,7 @@ const handleSocialLogin = (provider) => {
                                     <span>Signing In...</span>
                                 </template>
                                 <template v-else>
-                                    <span>Sign In</span>
-                                    <ArrowRight class="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                                    <span>Log In</span>
                                 </template>
                             </button>
                         </form>
@@ -187,7 +178,7 @@ const handleSocialLogin = (provider) => {
                         <!-- Sign Up CTA Link -->
                         <p class="text-xs text-center text-muted-foreground mt-2 md:mt-4">
                             Don't have an account?
-                            <a href="#" class="text-primary font-semibold hover:underline">Create an account</a>
+                            <router-link to="/register" class="text-primary font-semibold hover:underline">Create an account</router-link>
                         </p>
                     </CardContent>
                 </Card>
