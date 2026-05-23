@@ -11,6 +11,11 @@ const router = createRouter({
       component: () => import('@/views/Login.vue')
     },
     {
+      path: '/register',
+      name: 'Register',
+      component: () => import('@/views/Register.vue')
+    },
+    {
       path: '/',
       component: MainLayout,
       children: [
@@ -74,9 +79,11 @@ router.beforeEach(async (to, from, next) => {
     await authState.check()
   }
 
-  if (to.name !== 'Login' && !isAuthenticated.value) {
+  const isPublicPage = ['Login', 'Register'].includes(to.name)
+
+  if (!isPublicPage && !isAuthenticated.value) {
     next({ name: 'Login' })
-  } else if (to.name === 'Login' && isAuthenticated.value) {
+  } else if (isPublicPage && isAuthenticated.value) {
     next({ name: 'Dashboard' })
   } else {
     next()
