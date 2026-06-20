@@ -1,4 +1,5 @@
-const API_URL = 'http://localhost:5001/api/auth';
+const AUTH_URL = 'http://localhost:5001/api/auth';
+const AUTOMATION_URL = 'http://localhost:5001/api/api-automation';
 
 const fetchOptions = (options = {}) => ({
     ...options,
@@ -9,42 +10,116 @@ const fetchOptions = (options = {}) => ({
     }
 });
 
-export const api = {
-    register: async (name, email, password) => {
-        const res = await fetch(`${API_URL}/register`, fetchOptions({
-            method: 'POST',
-            body: JSON.stringify({ name, email, password })
-        }));
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || 'Register failed');
-        return data;
-    },
+const handleResponse = async (res) => {
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'API request failed');
+    return data;
+};
 
+export const api = {
+    // === AUTH ===
     login: async (email, password) => {
-        const res = await fetch(`${API_URL}/login`, fetchOptions({
+        const res = await fetch(`${AUTH_URL}/login`, fetchOptions({
             method: 'POST',
             body: JSON.stringify({ email, password })
         }));
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || 'Login failed');
-        return data;
+        return handleResponse(res);
     },
 
     logout: async () => {
-        const res = await fetch(`${API_URL}/logout`, fetchOptions({
+        const res = await fetch(`${AUTH_URL}/logout`, fetchOptions({
             method: 'POST'
         }));
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || 'Logout failed');
-        return data;
+        return handleResponse(res);
     },
 
     checkAuth: async () => {
-        const res = await fetch(`${API_URL}/me`, fetchOptions({
+        const res = await fetch(`${AUTH_URL}/me`, fetchOptions({
             method: 'GET'
         }));
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || 'Unauthorized');
-        return data;
+        return handleResponse(res);
+    },
+
+    // === API AUTOMATION SUITES ===
+    getSuites: async () => {
+        const res = await fetch(`${AUTOMATION_URL}/suites`, fetchOptions({
+            method: 'GET'
+        }));
+        const data = await handleResponse(res);
+        return data.data;
+    },
+
+    getSuite: async (id) => {
+        const res = await fetch(`${AUTOMATION_URL}/suites/${id}`, fetchOptions({
+            method: 'GET'
+        }));
+        const data = await handleResponse(res);
+        return data.data;
+    },
+
+    createSuite: async (name, description, targetUrl) => {
+        const res = await fetch(`${AUTOMATION_URL}/suites`, fetchOptions({
+            method: 'POST',
+            body: JSON.stringify({ name, description, targetUrl })
+        }));
+        const data = await handleResponse(res);
+        return data.data;
+    },
+
+    deleteSuite: async (id) => {
+        const res = await fetch(`${AUTOMATION_URL}/suites/${id}`, fetchOptions({
+            method: 'DELETE'
+        }));
+        return handleResponse(res);
+    },
+
+    // === RECORDING ===
+    startRecording: async (id) => {
+        const res = await fetch(`${AUTOMATION_URL}/suites/${id}/record`, fetchOptions({
+            method: 'POST'
+        }));
+        const data = await handleResponse(res);
+        return data.data;
+    },
+
+    getSuiteEndpoints: async (id) => {
+        const res = await fetch(`${AUTOMATION_URL}/suites/${id}/endpoints`, fetchOptions({
+            method: 'GET'
+        }));
+        const data = await handleResponse(res);
+        return data.data;
+    },
+
+    deleteEndpoint: async (id) => {
+        const res = await fetch(`${AUTOMATION_URL}/endpoints/${id}`, fetchOptions({
+            method: 'DELETE'
+        }));
+        return handleResponse(res);
+    },
+
+    // === RUN TEST ===
+    runTest: async (id, testType, vus, duration) => {
+        const res = await fetch(`${AUTOMATION_URL}/suites/${id}/run`, fetchOptions({
+            method: 'POST',
+            body: JSON.stringify({ testType, vus, duration })
+        }));
+        const data = await handleResponse(res);
+        return data.data;
+    },
+
+    getSuiteRuns: async (id) => {
+        const res = await fetch(`${AUTOMATION_URL}/suites/${id}/runs`, fetchOptions({
+            method: 'GET'
+        }));
+        const data = await handleResponse(res);
+        return data.data;
+    },
+
+    getAllRuns: async () => {
+        const res = await fetch(`${AUTOMATION_URL}/runs`, fetchOptions({
+            method: 'GET'
+        }));
+        const data = await handleResponse(res);
+        return data.data;
     }
 };

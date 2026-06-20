@@ -1,6 +1,9 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import Card from '@/components/ui/Card.vue'
+import CardContent from '@/components/ui/CardContent.vue'
+import Button from '@/components/ui/Button.vue'
 import { Line } from 'vue-chartjs'
 import {
   Chart as ChartJS,
@@ -25,7 +28,17 @@ import {
   TrendingUp,
   AlertTriangle,
   CheckCircle,
+  Loader2,
+  Trash2,
+  Calendar,
+  X,
+  FileCode,
+  Globe,
+  Settings,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-vue-next'
+import { api } from '@/lib/api'
 
 ChartJS.register(
   CategoryScale,
@@ -38,42 +51,168 @@ ChartJS.register(
   Filler
 )
 
-// Active Test Scenario Tab
-const activeTab = ref('rest_api') // 'functional', 'load', 'stress'
+const route = useRoute()
+const suiteId = route.params.id
 
-// Load Scenario parameters
-const duration = ref(30) // seconds
-const targetVUs = ref(50) // Virtual Users
+// Data State
+const suite = ref(null)
+const endpoints = ref([])
+const runs = ref([])
+const activeSubTab = ref('endpoints')
+
+// Loading States
+const suiteLoading = ref(true)
+const endpointsLoading = ref(true)
+const runsLoading = ref(true)
 
 // Runner State
+const testType = ref('functional')
+const vus = ref(10)
+const duration = ref(10)
 const isRunning = ref(false)
 const progress = ref(0)
-const logs = ref([])
+const logs = ref('System idle. Silakan klik tombol "Jalankan Uji Coba k6" di samping.')
+const currentRunResult = ref(null)
 const showReport = ref(false)
 
-// Chart configuration
-const chartData = ref({
-  labels: ['0s', '5s', '10s', '15s', '20s', '25s', '30s'],
-  datasets: [
-    {
-      label: 'Virtual Users (VUs)',
-      data: [0, 15, 35, 50, 50, 50, 0],
-      borderColor: 'rgb(34, 197, 94)',
-      backgroundColor: 'rgba(34, 197, 94, 0.05)',
-      yAxisID: 'y',
-      tension: 0.3,
-      fill: true
-    },
-    {
-      label: 'Response Time (ms)',
-      data: [120, 135, 142, 168, 172, 165, 130],
-      borderColor: 'rgb(59, 130, 246)',
-      backgroundColor: 'transparent',
-      yAxisID: 'y1',
-      tension: 0.3,
-      borderDash: [5, 5]
+// UI State
+const expandedEndpointId = ref(null)
+const selectedRunLog = ref(null)
+const showLogModal = ref(false)
+
+// Fetch Data
+const fetchSuiteDetail = async () => {
+  suiteLoading.value = true
+  try {
+    suite.value = await api.getSuite(suiteId)
+  } catch (error) {
+    console.error('Failed to fetch suite:', error)
+  } finally {
+    suiteLoading.value = false
+  }
+}
+
+const fetchEndpoints = async () => {
+  endpointsLoading.value = true
+  try {
+    endpoints.value = await api.getSuiteEndpoints(suiteId)
+  } catch (error) {
+    console.error('Failed to fetch endpoints:', error)
+  } finally {
+    endpointsLoading.value = false
+  }
+}
+
+const fetchRuns = async () => {
+  runsLoading.value = true
+  try {
+    runs.value = await api.getSuiteRuns(suiteId)
+  } catch (error) {
+    console.error('Failed to fetch runs:', error)
+  } finally {
+    runsLoading.value = false
+  }
+}
+
+const deleteEndpoint = async (id) => {
+  if (!confirm('Apakah Anda yakin ingin menghapus endpoint terekam ini?')) {
+    return
+  }
+  try {
+    await api.deleteEndpoint(id)
+    await fetchEndpoints()
+  } catch (error) {
+    alert('Gagal menghapus endpoint: ' + error.message)
+  }
+}
+
+const toggleExpandEndpoint = (id) => {
+  if (expandedEndpointId.value === id) {
+    expandedEndpointId.value = null
+  } else {
+    expandedEndpointId.value = id
+  }
+}
+
+// Run Test Simulation
+const runSimulation = async () => {
+  if (endpoints.value.length === 0) {
+    alert('Tidak ada endpoint yang terekam. Skenario harus memiliki minimal satu endpoint untuk dijalankan.')
+    return
+  }
+  
+  isRunning.value = true
+  showReport.value = false
+  progress.value = 0
+  logs.value = 'Menginisialisasi k6 Engine...\nMenghubungkan ke database dan membaca endpoints...\nMembuat file skrip k6 temporary...\nMenjalankan pengujian CLI k6...\n'
+  
+  const progressInterval = setInterval(() => {
+    if (progress.value < 90) {
+      progress.value += Math.round(Math.random() * 8) + 2
+      if (progress.value > 90) progress.value = 90
     }
-  ]
+  }, 400)
+  
+  try {
+    const data = await api.runTest(suiteId, testType.value, vus.value, duration.value)
+    progress.value = 100
+    logs.value += `\n[SELESAI] K6 Test Run berhasil dijalankan!\n\n--- OUTPUT LOG ---\n${data.logOutput}`
+    currentRunResult.value = data
+    showReport.value = true
+    await fetchRuns()
+  } catch (error) {
+    logs.value += `\n[ERROR] Uji coba k6 gagal:\n${error.message}`
+    alert('Pengujian k6 gagal: ' + error.message)
+  } finally {
+    clearInterval(progressInterval)
+    isRunning.value = false
+  }
+}
+
+const stopSimulation = () => {
+  alert('Menghentikan proses CLI k6...')
+  isRunning.value = false
+}
+
+// Chart configuration
+const chartData = computed(() => {
+  const recentRuns = [...runs.value].slice(0, 7).reverse()
+  
+  const labels = recentRuns.length > 0 
+    ? recentRuns.map(r => new Date(r.executed_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }))
+    : ['Run 1', 'Run 2', 'Run 3', 'Run 4', 'Run 5']
+    
+  const latencyData = recentRuns.length > 0
+    ? recentRuns.map(r => r.avg_latency)
+    : [120, 135, 142, 168, 172]
+
+  const rpsData = recentRuns.length > 0
+    ? recentRuns.map(r => r.max_rps)
+    : [10, 50, 100, 200, 150]
+
+  return {
+    labels,
+    datasets: [
+      {
+        label: 'Rata-rata Latensi (ms)',
+        data: latencyData,
+        borderColor: 'rgb(59, 130, 246)',
+        backgroundColor: 'rgba(59, 130, 246, 0.05)',
+        yAxisID: 'y',
+        tension: 0.3,
+        fill: true
+      },
+      {
+        label: 'Max RPS',
+        data: rpsData,
+        borderColor: 'rgb(34, 197, 94)',
+        backgroundColor: 'transparent',
+        yAxisID: 'y1',
+        tension: 0.3,
+        borderDash: [5, 5]
+      }
+    ]
+  }
 })
 
 const chartOptions = computed(() => ({
@@ -97,275 +236,374 @@ const chartOptions = computed(() => ({
   }
 }))
 
-// Simulation Logger
-const runK6Simulation = () => {
-  isRunning.value = true
-  showReport.value = false
-  progress.value = 0
-  logs.value = []
-  
-  const logMessages = [
-    `[k6] Memulai inisialisasi modul k6...`,
-    `[k6] Menghubungkan target: ${httpMethod.value} ${targetUrl.value}`,
-    `[k6] Mengonfigurasi skenario pengujian: Mode ${activeTab.value.toUpperCase()}`,
-    `[k6] Meluncurkan ${activeTab.value === 'functional' ? 1 : targetVUs.value} Virtual Users (VUs)...`,
-    `[k6] [0s] Sesi pemanasan (Ramp-up) dimulai...`,
-    `[k6] [5s] 15 VUs aktif - Rata-rata Latensi: 135ms - RPS: 240`,
-    `[k6] [10s] 35 VUs aktif - Rata-rata Latensi: 142ms - RPS: 480`,
-    `[k6] [15s] Keadaan mantap (Steady-state) dicapai dengan ${targetVUs.value} VUs aktif...`,
-    `[k6] [20s] Menguji ketahanan - Rata-rata Latensi: 172ms - RPS: 850`,
-    `[k6] [25s] Uji coba asersi fungsional berhasil (Status code & JSON Schema: 100% OK)`,
-    `[k6] [30s] Sesi pendinginan (Ramp-down) selesai.`,
-    `[k6] Menghitung metrik final...`,
-    `[k6] Menghasilkan laporan JSON laporan pemantauan...`,
-    `[k6] Simulasi selesai. Hasil disimpan ke database.`
-  ]
-
-  let i = 0
-  const interval = setInterval(() => {
-    if (i < logMessages.length) {
-      logs.value.push({
-        timestamp: new Date().toLocaleTimeString(),
-        text: logMessages[i]
-      })
-      progress.value = Math.min(Math.round(((i + 1) / logMessages.length) * 100), 100)
-      i++
-    } else {
-      clearInterval(interval)
-      isRunning.value = false
-      showReport.value = true
-    }
-  }, 800)
+const getMethodColor = (method) => {
+  const m = method.toUpperCase()
+  if (m === 'GET') return 'bg-sky-500/10 text-sky-500 border-sky-500/20'
+  if (m === 'POST') return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+  if (m === 'PUT') return 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+  if (m === 'DELETE') return 'bg-red-500/10 text-red-500 border-red-500/20'
+  return 'bg-purple-500/10 text-purple-500 border-purple-500/20'
 }
 
-const stopSimulation = () => {
-  isRunning.value = false
-  logs.value.push({
-    timestamp: new Date().toLocaleTimeString(),
-    text: `[k6] [WARNING] Simulasi dihentikan paksa oleh pengguna.`
+const formatDate = (dateStr) => {
+  return new Date(dateStr).toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
   })
 }
+
+onMounted(() => {
+  fetchSuiteDetail()
+  fetchEndpoints()
+  fetchRuns()
+})
 </script>
 
 <template>
-  <div class="space-y-8">
-    
-    <!-- Title Header -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-      <div>
-        <h1 class="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
-          <Network class="text-green-500" /> API Performance Testing (k6)
-        </h1>
-        <p class="text-sm text-muted-foreground mt-1">
-          Konfigurasi skenario HTTP, jalankan simulasi beban virtual, dan pantau stabilitas API secara real-time menggunakan mesin k6.
-        </p>
+  <div class="space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-5">
+      <div class="flex items-center gap-3">
+        <router-link to="/test-suites" class="p-2 border rounded-lg bg-card/50 hover:bg-card hover:text-primary transition-all text-xs flex items-center gap-1.5 font-semibold">
+          ← Kembali
+        </router-link>
+        <div v-if="!suiteLoading && suite">
+          <h1 class="text-xl font-bold tracking-tight text-foreground">{{ suite.name }}</h1>
+          <p class="text-[11px] text-muted-foreground font-mono mt-0.5 break-all">{{ suite.target_url }}</p>
+        </div>
+        <div v-else class="space-y-2">
+          <div class="h-6 w-48 bg-muted animate-pulse rounded"></div>
+          <div class="h-4 w-64 bg-muted animate-pulse rounded"></div>
+        </div>
       </div>
     </div>
 
-    <!-- Mode Selector Cards -->
-    <div class="grid gap-6 md:grid-cols-2">
-<button 
-        @click="activeTab = 'rest_api'" 
-        class="text-left border p-5 rounded-xl transition-all"
-        :class="activeTab === 'rest_api' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'bg-card/45 hover:border-muted-foreground/30'"
-      >
-        <div class="flex items-center justify-between mb-3">
-          <span class="p-2 rounded-lg bg-green-500/10 text-green-600">
-            <CheckCircle :size="20" />
-          </span>
-          <span class="text-[10px] uppercase font-bold text-muted-foreground">Rest API</span>
-        </div>
-        <h3 class="font-bold text-foreground">Rest API Testing</h3>
-        <p class="text-xs text-muted-foreground mt-1">Validasi endpoint REST API untuk memastikan respons yang benar dengan status 200 OK dan payload JSON yang valid.</p>
-      </button>
-
+    <!-- Navigation Tabs -->
+    <div class="flex border-b border-muted">
       <button 
-        @click="activeTab = 'functional'" 
-        class="text-left border p-5 rounded-xl transition-all"
-        :class="activeTab === 'functional' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'bg-card/45 hover:border-muted-foreground/30'"
+        @click="activeSubTab = 'endpoints'" 
+        class="px-5 py-2.5 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5"
+        :class="activeSubTab === 'endpoints' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'"
       >
-        <div class="flex items-center justify-between mb-3">
-          <span class="p-2 rounded-lg bg-green-500/10 text-green-600">
-            <CheckCircle :size="20" />
-          </span>
-          <span class="text-[10px] uppercase font-bold text-muted-foreground">Functional</span>
-        </div>
-        <h3 class="font-bold text-foreground">API Assertions</h3>
-        <p class="text-xs text-muted-foreground mt-1">Validasi status kode, header, integritas skema JSON, dan response body secara berkala.</p>
+        <Layers class="h-4 w-4" />
+        REST API Endpoints ({{ endpoints.length }})
       </button>
-
       <button 
-        @click="activeTab = 'load'" 
-        class="text-left border p-5 rounded-xl transition-all"
-        :class="activeTab === 'load' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'bg-card/45 hover:border-muted-foreground/30'"
+        @click="activeSubTab = 'k6'" 
+        class="px-5 py-2.5 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5"
+        :class="activeSubTab === 'k6' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'"
       >
-        <div class="flex items-center justify-between mb-3">
-          <span class="p-2 rounded-lg bg-blue-500/10 text-blue-600">
-            <Gauge :size="20" />
-          </span>
-          <span class="text-[10px] uppercase font-bold text-muted-foreground">Load Test</span>
-        </div>
-        <h3 class="font-bold text-foreground">Performance Load</h3>
-        <p class="text-xs text-muted-foreground mt-1">Simulasikan puluhan pengguna virtual untuk mengukur response time rata-rata di bawah beban normal.</p>
+        <Play class="h-4 w-4 fill-current" />
+        k6 Test Runner
       </button>
-
       <button 
-        @click="activeTab = 'stress'" 
-        class="text-left border p-5 rounded-xl transition-all"
-        :class="activeTab === 'stress' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'bg-card/45 hover:border-muted-foreground/30'"
+        @click="activeSubTab = 'history'" 
+        class="px-5 py-2.5 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5"
+        :class="activeSubTab === 'history' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'"
       >
-        <div class="flex items-center justify-between mb-3">
-          <span class="p-2 rounded-lg bg-orange-500/10 text-orange-600">
-            <Zap :size="20" />
-          </span>
-          <span class="text-[10px] uppercase font-bold text-muted-foreground">Stress Test</span>
-        </div>
-        <h3 class="font-bold text-foreground">Stress/Limit Testing</h3>
-        <p class="text-xs text-muted-foreground mt-1">Dorong beban RPS setinggi mungkin untuk mendeteksi kapasitas maksimal dan titik pecah (*breaking point*).</p>
+        <Database class="h-4 w-4" />
+        Riwayat Run & Analitik
       </button>
     </div>
 
-    <!-- Main Configuration Panel & Logs -->
-    <div class="grid gap-6 lg:grid-cols-3">
-      <!-- HTTP Request Builder -->
-      <Card class="lg:col-span-2 border bg-card/45 backdrop-blur-sm p-6 space-y-6">
-        <h2 class="text-lg font-bold text-foreground border-b pb-2 flex items-center gap-1.5">
-          <Layers :size="18" class="text-primary" /> HTTP Configuration
-        </h2>
+    <!-- Tab 1: REST API Endpoints (Captured List) -->
+    <div v-if="activeSubTab === 'endpoints'" class="space-y-4">
+      <Card class="border bg-card/45 backdrop-blur-sm p-5 space-y-4">
+        <div>
+          <h2 class="text-sm font-bold text-foreground">Endpoints Hasil Rekaman Browser</h2>
+          <p class="text-xs text-muted-foreground">List request API XHR/Fetch yang berhasil ditangkap saat browser merekam aktivitas.</p>
+        </div>
 
-        <!-- Run / Action Buttons -->
-        <div class="flex gap-3 justify-end border-t pt-4">
-          <button 
+        <div v-if="endpointsLoading" class="flex flex-col items-center justify-center py-20 space-y-3">
+          <Loader2 class="h-6 w-6 text-primary animate-spin" />
+          <p class="text-xs text-muted-foreground">Memuat endpoints...</p>
+        </div>
+
+        <div v-else-if="endpoints.length === 0" class="border border-dashed rounded-xl p-10 text-center bg-card/25">
+          <Layers class="h-8 w-8 text-muted-foreground mx-auto mb-3 opacity-50" />
+          <h3 class="text-xs font-semibold text-foreground">Tidak ada endpoint terekam</h3>
+          <p class="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+            Silakan kembali ke daftar Test Suites dan klik "Record XHR" untuk merekam endpoint secara otomatis.
+          </p>
+        </div>
+
+        <div v-else class="space-y-3">
+          <div 
+            v-for="(ep, index) in endpoints" 
+            :key="ep.id" 
+            class="border rounded-xl bg-card/60 overflow-hidden transition-all duration-300"
+          >
+            <!-- Endpoint Header Row -->
+            <div class="p-4 flex items-center justify-between gap-4 hover:bg-accent/20 cursor-pointer transition-colors" @click="toggleExpandEndpoint(ep.id)">
+              <div class="flex items-center gap-3 min-w-0">
+                <span class="bg-muted text-muted-foreground w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold">{{ index + 1 }}</span>
+                <span :class="['px-2 py-0.5 border rounded text-[9px] font-extrabold uppercase tracking-wide', getMethodColor(ep.method)]">
+                  {{ ep.method }}
+                </span>
+                <span class="font-mono text-xs text-foreground truncate break-all">{{ ep.url }}</span>
+              </div>
+              <div class="flex items-center gap-3 shrink-0">
+                <button 
+                  @click.stop="deleteEndpoint(ep.id)" 
+                  class="p-1.5 text-muted-foreground hover:text-red-500 rounded-md hover:bg-red-500/10 transition-colors"
+                  title="Hapus Endpoint"
+                >
+                  <Trash2 class="h-3.5 w-3.5" />
+                </button>
+                <component :is="expandedEndpointId === ep.id ? ChevronUp : ChevronDown" class="h-4 w-4 text-muted-foreground" />
+              </div>
+            </div>
+
+            <!-- Endpoint Detail Accordion -->
+            <div v-if="expandedEndpointId === ep.id" class="border-t bg-card/30 p-4 space-y-4 animate-in slide-in-from-top-1 duration-200">
+              <div v-if="ep.description" class="space-y-1">
+                <h4 class="text-[10px] uppercase font-bold text-muted-foreground tracking-wide">Deskripsi</h4>
+                <p class="text-xs text-foreground">{{ ep.description }}</p>
+              </div>
+
+              <!-- Headers -->
+              <div class="space-y-1.5">
+                <h4 class="text-[10px] uppercase font-bold text-muted-foreground tracking-wide">Headers</h4>
+                <div class="border rounded-lg bg-background/50 p-3 overflow-x-auto max-h-40">
+                  <table class="w-full text-[11px] font-mono">
+                    <tbody>
+                      <tr v-for="h in JSON.parse(ep.headers || '[]')" :key="h.key" class="border-b last:border-none border-muted/30">
+                        <td class="text-primary font-semibold py-1.5 pr-4 select-all">{{ h.key }}</td>
+                        <td class="text-foreground/80 py-1.5 break-all select-all">{{ h.value }}</td>
+                      </tr>
+                      <tr v-if="JSON.parse(ep.headers || '[]').length === 0">
+                        <td class="text-muted-foreground py-1 text-center" colspan="2">No Headers</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Body Payload -->
+              <div class="space-y-1.5">
+                <h4 class="text-[10px] uppercase font-bold text-muted-foreground tracking-wide">Request Body Payload</h4>
+                <pre class="bg-black/90 text-green-400 font-mono text-[11px] p-3 rounded-lg overflow-x-auto max-h-48 border select-all">{{ ep.body ? JSON.stringify(JSON.parse(ep.body), null, 4) : 'No Body Payload' }}</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+    </div>
+
+    <!-- Tab 2: k6 Performance Test Runner -->
+    <div v-else-if="activeSubTab === 'k6'" class="grid gap-6 lg:grid-cols-3">
+      <!-- Config Form -->
+      <Card class="lg:col-span-1 border bg-card/45 p-5 flex flex-col justify-between space-y-5">
+        <div class="space-y-5">
+          <h2 class="text-sm font-bold text-foreground border-b pb-2 flex items-center gap-1.5">
+            <Settings class="h-4 w-4 text-primary" /> Konfigurasi k6
+          </h2>
+          <div class="space-y-4">
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-muted-foreground">Tipe Pengujian</label>
+              <select v-model="testType" class="w-full text-xs border rounded-lg p-2.5 bg-background focus:ring-1 focus:ring-primary focus:outline-none transition-all">
+                <option value="functional">Functional (1 VU, Assertion Check)</option>
+                <option value="load">Load Test (Steady Load Simulation)</option>
+                <option value="stress">Stress Test (Breaking Point Simulation)</option>
+              </select>
+            </div>
+            
+            <div v-if="testType !== 'functional'" class="grid grid-cols-2 gap-3 animate-in slide-in-from-top-1 duration-200">
+              <div class="space-y-1.5">
+                <label class="text-xs font-semibold text-muted-foreground">Virtual Users (VUs)</label>
+                <input v-model="vus" type="number" min="1" max="1000" class="w-full text-xs border rounded-lg p-2 bg-background focus:ring-1 focus:ring-primary focus:outline-none transition-all" />
+              </div>
+              <div class="space-y-1.5">
+                <label class="text-xs font-semibold text-muted-foreground">Durasi (Detik)</label>
+                <input v-model="duration" type="number" min="2" max="600" class="w-full text-xs border rounded-lg p-2 bg-background focus:ring-1 focus:ring-primary focus:outline-none transition-all" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-4 border-t">
+          <Button 
             v-if="isRunning" 
             @click="stopSimulation" 
-            class="bg-red-500 text-white px-5 py-2.5 rounded-lg font-semibold text-sm hover:bg-red-600 transition-all flex items-center gap-1.5"
+            variant="destructive"
+            class="w-full h-10 px-4 font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm"
           >
-            <StopCircle :size="16" /> Stop Simulation
-          </button>
-          <button 
+            <StopCircle class="h-4 w-4" /> Hentikan Uji Coba
+          </Button>
+          <Button 
             v-else 
-            @click="runK6Simulation" 
-            class="bg-primary text-primary-foreground px-6 py-2.5 rounded-lg font-semibold text-sm hover:bg-primary/95 transition-all flex items-center gap-1.5 shadow-md"
+            @click="runSimulation"
+            :disabled="endpoints.length === 0"
+            class="w-full h-10 px-4 font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm"
           >
-            <Play :size="14" class="fill-current" /> Run k6 Simulation
-          </button>
+            <Play class="h-3.5 w-3.5 fill-current" /> Jalankan Uji Coba k6
+          </Button>
         </div>
       </Card>
 
-      <!-- Terminal Logs -->
-      <Card class="border bg-card/45 backdrop-blur-sm p-5 flex flex-col h-full space-y-4">
-        <h2 class="text-lg font-bold text-foreground border-b pb-2 flex items-center gap-1.5">
-          <Terminal :size="18" class="text-primary" /> Simulation Logs
+      <!-- Terminal logs -->
+      <Card class="lg:col-span-2 border bg-card/45 p-5 flex flex-col h-full space-y-4">
+        <h2 class="text-sm font-bold text-foreground border-b pb-2 flex items-center gap-1.5">
+          <Terminal class="h-4 w-4 text-primary" /> Live Terminal Log k6
         </h2>
         
-        <!-- Progress Bar -->
-        <div v-if="isRunning" class="space-y-1.5">
-          <div class="flex justify-between text-xs font-semibold">
+        <!-- Progress bar -->
+        <div v-if="isRunning" class="space-y-1.5 animate-in fade-in duration-200">
+          <div class="flex justify-between text-[10px] font-semibold">
             <span class="text-primary">Running simulation...</span>
             <span>{{ progress }}%</span>
           </div>
-          <div class="w-full bg-secondary h-2 rounded-full overflow-hidden">
+          <div class="w-full bg-secondary h-1.5 rounded-full overflow-hidden">
             <div class="bg-primary h-full rounded-full transition-all duration-300" :style="{ width: `${progress}%` }"></div>
           </div>
         </div>
 
         <!-- Log window -->
-        <div class="flex-1 bg-black/90 text-green-400 font-mono text-xs p-4 rounded-xl overflow-y-auto h-72 lg:h-[320px] space-y-2 select-text custom-scrollbar">
-          <div v-for="(log, index) in logs" :key="index" class="leading-relaxed">
-            <span class="text-muted-foreground mr-1">[{{ log.timestamp }}]</span> {{ log.text }}
-          </div>
-          <div v-if="logs.length === 0" class="text-muted-foreground text-center py-20">
-            System idle. Silakan klik tombol "Run Simulation" untuk memulai pengujian.
-          </div>
+        <div class="flex-1 bg-black/90 text-green-400 font-mono text-[11px] p-4 rounded-xl overflow-y-auto h-72 lg:h-[260px] space-y-2 select-text custom-scrollbar">
+          <pre class="leading-relaxed whitespace-pre-wrap">{{ logs }}</pre>
+        </div>
+      </Card>
+
+      <!-- Simulation Report (when finished) -->
+      <div v-if="showReport && currentRunResult" class="lg:col-span-3 space-y-6 pt-4 animate-in slide-in-from-bottom-2 duration-300">
+        <h3 class="text-base font-bold text-foreground flex items-center gap-1.5 border-b pb-2">
+          <Database class="h-5 w-5 text-green-500" /> Hasil Laporan Run Terakhir
+        </h3>
+
+        <!-- Metrics summary cards -->
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Card class="border bg-card/45 backdrop-blur-sm p-4 space-y-1">
+            <span class="text-[10px] font-semibold text-muted-foreground uppercase">Status</span>
+            <p :class="['text-xl font-bold uppercase', currentRunResult.status === 'success' ? 'text-green-500' : 'text-red-500']">
+              {{ currentRunResult.status }}
+            </p>
+            <p class="text-[9px] text-muted-foreground">Kriteria kelulusan &gt;= 95%</p>
+          </Card>
+
+          <Card class="border bg-card/45 backdrop-blur-sm p-4 space-y-1">
+            <span class="text-[10px] font-semibold text-muted-foreground uppercase">Rata-rata Latensi</span>
+            <p class="text-xl font-bold text-foreground">{{ currentRunResult.avgLatency }} ms</p>
+            <p class="text-[9px] text-muted-foreground">Waktu tunggu tanggapan HTTP</p>
+          </Card>
+
+          <Card class="border bg-card/45 backdrop-blur-sm p-4 space-y-1">
+            <span class="text-[10px] font-semibold text-muted-foreground uppercase">Total Request</span>
+            <p class="text-xl font-bold text-foreground">{{ currentRunResult.totalRequests }}</p>
+            <p class="text-[9px] text-muted-foreground">Jumlah panggilan API sukses & gagal</p>
+          </Card>
+
+          <Card class="border bg-card/45 backdrop-blur-sm p-4 space-y-1">
+            <span class="text-[10px] font-semibold text-muted-foreground uppercase">Success Rate</span>
+            <p :class="['text-xl font-bold', currentRunResult.successRate >= 95 ? 'text-green-500' : 'text-red-500']">
+              {{ currentRunResult.successRate }}%
+            </p>
+            <p class="text-[9px] text-muted-foreground">Throughput: {{ currentRunResult.maxRps }} RPS</p>
+          </Card>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 3: History & Analytics Reports -->
+    <div v-else-if="activeSubTab === 'history'" class="space-y-6">
+      <!-- Analytics chart -->
+      <Card class="border bg-card/45 backdrop-blur-sm p-5 space-y-4">
+        <div>
+          <h3 class="text-sm font-bold text-foreground">Tren Latensi & throughput (7 Run Terakhir)</h3>
+          <p class="text-xs text-muted-foreground">Visualisasi data peningkatan latensi rata-rata terhadap batas Max RPS.</p>
+        </div>
+        <div class="h-64">
+          <Line :data="chartData" :options="chartOptions" />
+        </div>
+      </Card>
+
+      <!-- History Table -->
+      <Card class="border bg-card/45 p-5 space-y-4">
+        <div>
+          <h3 class="text-sm font-bold text-foreground">Laporan Riwayat Eksekusi k6</h3>
+          <p class="text-xs text-muted-foreground">Daftar rekaman pengujian beban k6 untuk scenario suite ini.</p>
+        </div>
+
+        <div v-if="runsLoading" class="flex flex-col items-center justify-center py-20 space-y-3">
+          <Loader2 class="h-6 w-6 text-primary animate-spin" />
+          <p class="text-xs text-muted-foreground">Memuat riwayat...</p>
+        </div>
+
+        <div v-else-if="runs.length === 0" class="border border-dashed rounded-xl p-8 text-center bg-card/25 text-xs text-muted-foreground">
+          Belum ada riwayat uji coba. Jalankan k6 runner untuk melihat riwayat di sini.
+        </div>
+
+        <div v-else class="overflow-x-auto border rounded-xl">
+          <table class="w-full text-xs text-left">
+            <thead class="bg-muted/50 border-b text-[10px] font-bold uppercase text-muted-foreground">
+              <tr>
+                <th class="p-3">Waktu Eksekusi</th>
+                <th class="p-3">Tipe Uji</th>
+                <th class="p-3">Status</th>
+                <th class="p-3">Durasi</th>
+                <th class="p-3 text-right">Rata-rata Latensi</th>
+                <th class="p-3 text-right">Success Rate</th>
+                <th class="p-3 text-right">Max RPS</th>
+                <th class="p-3 text-center">Log</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y border-b last:border-none">
+              <tr v-for="run in runs" :key="run.id" class="hover:bg-accent/15 transition-colors">
+                <td class="p-3 font-medium whitespace-nowrap">{{ formatDate(run.executed_at) }}</td>
+                <td class="p-3 capitalize font-semibold text-foreground/80">{{ run.test_type }}</td>
+                <td class="p-3">
+                  <span :class="['px-2 py-0.5 rounded-full text-[9px] font-bold uppercase', run.status === 'success' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500']">
+                    {{ run.status }}
+                  </span>
+                </td>
+                <td class="p-3 text-foreground/75">{{ run.duration_ms / 1000 }}s</td>
+                <td class="p-3 text-right font-mono font-semibold">{{ run.avg_latency }} ms</td>
+                <td class="p-3 text-right font-mono font-semibold" :class="run.success_rate >= 95 ? 'text-green-500' : 'text-red-500'">{{ run.success_rate }}%</td>
+                <td class="p-3 text-right font-mono font-semibold">{{ run.max_rps }} RPS</td>
+                <td class="p-3 text-center">
+                  <button @click="openLogModal(run)" class="p-1 hover:bg-primary/10 hover:text-primary rounded-md transition-colors" title="Buka Log Output">
+                    <Terminal class="h-3.5 w-3.5" />
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </Card>
     </div>
 
-    <!-- Final Analytics Report Card -->
-    <transition
-      enter-active-class="transition ease-out duration-300 transform"
-      enter-from-class="opacity-0 translate-y-4"
-      enter-to-class="opacity-100 translate-y-0"
-      leave-active-class="transition ease-in duration-200 transform"
-      leave-from-class="opacity-100 translate-y-0"
-      leave-to-class="opacity-0 translate-y-4"
-    >
-      <div v-if="showReport" class="space-y-6">
-        <h2 class="text-xl font-bold text-foreground flex items-center gap-1.5">
-          <Database :size="20" class="text-green-500" /> Simulation Metrics Report
-        </h2>
-
-        <!-- Metric Cards -->
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card class="border bg-card/45 backdrop-blur-sm p-5 space-y-1">
-            <span class="text-xs font-semibold text-muted-foreground uppercase">Rata-rata Latensi</span>
-            <p class="text-2xl font-bold text-foreground">152 ms</p>
-            <p class="text-[10px] text-green-600 font-medium flex items-center gap-0.5">
-              <TrendingUp :size="12" /> p(95) = 286ms
-            </p>
-          </Card>
-
-          <Card class="border bg-card/45 backdrop-blur-sm p-5 space-y-1">
-            <span class="text-xs font-semibold text-muted-foreground uppercase">Throughput</span>
-            <p class="text-2xl font-bold text-foreground">850 RPS</p>
-            <p class="text-[10px] text-muted-foreground">Rata-rata requests per detik</p>
-          </Card>
-
-          <Card class="border bg-card/45 backdrop-blur-sm p-5 space-y-1">
-            <span class="text-xs font-semibold text-muted-foreground uppercase">Total HTTP Request</span>
-            <p class="text-2xl font-bold text-foreground">25,480</p>
-            <p class="text-[10px] text-green-600 font-medium">✔ 25429 <span class="text-red-500 ml-1">✘ 51</span></p>
-          </Card>
-
-          <Card class="border bg-card/45 backdrop-blur-sm p-5 space-y-1">
-            <span class="text-xs font-semibold text-muted-foreground uppercase">Success Rate</span>
-            <p class="text-2xl font-bold text-green-500">99.8%</p>
-            <p class="text-[10px] text-muted-foreground">Tingkat kegagalan &lt; 0.2%</p>
-          </Card>
+    <!-- Logs Viewer Modal -->
+    <div v-if="showLogModal && selectedRunLog" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="w-full max-w-3xl bg-card border rounded-xl shadow-xl overflow-hidden flex flex-col h-[80vh] relative animate-in fade-in zoom-in-95 duration-200">
+        <!-- Header -->
+        <div class="p-4 border-b flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <Terminal class="h-5 w-5 text-primary" />
+            <div>
+              <h3 class="text-sm font-bold text-foreground">k6 Console Log Output</h3>
+              <p class="text-[10px] text-muted-foreground">{{ formatDate(selectedRunLog.executed_at) }} - Mode: {{ selectedRunLog.test_type }} (Status: {{ selectedRunLog.status }})</p>
+            </div>
+          </div>
+          <button 
+            @click="showLogModal = false" 
+            class="p-1.5 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          >
+            <X class="h-4 w-4" />
+          </button>
         </div>
 
-        <!-- Graph of simulation timeline -->
-        <Card class="border bg-card/45 backdrop-blur-sm p-6 space-y-4">
-          <div>
-            <h3 class="text-lg font-bold text-foreground">Simulation Analytics Timeline</h3>
-            <p class="text-xs text-muted-foreground">Grafik tingkat VUs terhadap Latensi (ms) selama sesi pengujian.</p>
-          </div>
-          <div class="h-64">
-            <Line :data="chartData" :options="chartOptions" />
-          </div>
-        </Card>
+        <!-- Terminal log body -->
+        <div class="flex-1 bg-black text-green-400 font-mono text-[11px] p-5 overflow-y-auto select-text">
+          <pre class="whitespace-pre-wrap leading-relaxed">{{ selectedRunLog.log_output }}</pre>
+        </div>
 
-        <!-- Dynamic Assertion Summary -->
-        <Card class="border bg-card/45 backdrop-blur-sm p-5 space-y-4">
-          <div>
-            <h3 class="text-lg font-bold text-foreground">Assertion Summary Report</h3>
-            <p class="text-xs text-muted-foreground">Hasil pemenuhan kriteria threshold k6.</p>
-          </div>
-          <div class="space-y-3.5">
-            <div class="flex items-center justify-between p-3 rounded-lg border bg-green-500/5 border-green-500/20 text-xs">
-              <span class="font-semibold text-green-600 flex items-center gap-1.5">
-                <CheckCircle :size="16" /> http_req_failed &lt; 1%
-              </span>
-              <span class="text-muted-foreground font-bold">Passed (Rate: 0.2%)</span>
-            </div>
-
-            <div class="flex items-center justify-between p-3 rounded-lg border bg-green-500/5 border-green-500/20 text-xs">
-              <span class="font-semibold text-green-600 flex items-center gap-1.5">
-                <CheckCircle :size="16" /> http_req_duration p(95) &lt; 500ms
-              </span>
-              <span class="text-muted-foreground font-bold">Passed (Actual: 286ms)</span>
-            </div>
-
-            <div class="flex items-center justify-between p-3 rounded-lg border bg-red-500/5 border-red-500/20 text-xs" v-if="activeTab === 'stress'">
-              <span class="font-semibold text-red-500 flex items-center gap-1.5">
-                <AlertTriangle :size="16" /> CPU utilization &lt; 80%
-              </span>
-              <span class="text-red-500 font-bold">Failed (Peak: 89.2% on stress peak VUs)</span>
-            </div>
-          </div>
-        </Card>
+        <!-- Footer -->
+        <div class="p-3 border-t bg-card flex justify-end">
+          <Button size="sm" @click="showLogModal = false" class="h-8 text-xs font-semibold">Tutup</Button>
+        </div>
       </div>
-    </transition>
-
+    </div>
   </div>
 </template>

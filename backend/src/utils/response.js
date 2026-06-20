@@ -1,13 +1,19 @@
 const sendSuccess = (res, message, data = null, statusCode = 200) => {
+    const response = {
+        success: true,
+        message,
+    };
     if (data !== null) {
-        return res.status(statusCode).json(data);
+        response.data = data;
     }
-    return res.status(statusCode).json({ message });
+    return res.status(statusCode).json(response);
 };
 
 const sendError = (res, message, statusCode = 500) => {
     return res.status(statusCode).json({
+        success: false,
         message,
     });
 };
-module.exports = { sendSuccess, sendError }
+
+module.exports = { sendSuccess, sendError };

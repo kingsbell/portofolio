@@ -1,8 +1,8 @@
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
-const errorMiddleWare = require('./src/middlewares/errorMiddleware');
 const authRoutes = require('./src/routes/authRoutes');
+const apiAutomationRoutes = require('./src/routes/apiAutomationRoutes');
 
 const app = express();
 const port = process.env.PORT || 5001;
@@ -26,6 +26,7 @@ app.use(express.urlencoded({
 app.use(cookieParser())
 
 app.use('/api/auth', authRoutes);
+app.use('/api/api-automation', apiAutomationRoutes);
 
 app.get('/', (req, res) => {
     res.json({
@@ -33,7 +34,19 @@ app.get('/', (req, res) => {
     });
 });
 
-app.use(errorMiddleWare);
+// Global Error Handler
+app.use((err, req, res, next) => {
+    console.error('🔥 Global Error:', err.stack);
+    
+    // Gunakan status code dari error (jika ada) atau default ke 500
+    const statusCode = err.statusCode || 500;
+    const message = err.message || "Internal server error";
+
+    res.status(statusCode).json({
+        success: false,
+        message: message
+    });
+});
 
 app.listen(port, () => {
     console.log(`Server running in http://localhost:${port}`);
