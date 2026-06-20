@@ -99,7 +99,7 @@ router.beforeEach(async (to, from, next) => {
     await authState.check()
   }
 
-  const isPublicPage = ['Login', 'ForgotPassword'].includes(to.name)
+  const isPublicPage = ['Login'].includes(to.name)
 
   if (!isPublicPage && !isAuthenticated.value) {
     next({ name: 'Login' })

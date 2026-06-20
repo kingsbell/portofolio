@@ -134,13 +134,8 @@ const handleSocialLogin = (provider) => {
 
                             <!-- Password Input Field -->
                             <div class="space-y-1.5">
-                                <div class="flex items-center justify-between">
-                                    <label for="password"
-                                        class="text-xs font-semibold text-foreground/80 tracking-wide uppercase">Password</label>
-                                    <a href="#" @click.prevent=""
-                                        class="text-xs text-primary font-medium hover:underline hover:text-primary/95">Forgot
-                                        Password?</a>
-                                </div>
+                                <label for="password"
+                                    class="text-xs font-semibold text-foreground/80 tracking-wide uppercase">Password</label>
                                 <div class="relative group">
                                     <span
                                         class="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors duration-200">
