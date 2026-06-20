@@ -29,7 +29,6 @@ const navigation = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
   { name: 'Test Suites', path: '/test-suites', icon: FlaskConical },
   { name: 'Test Runs', path: '/test-runs', icon: CirclePlay },
-  { name: 'API Testing', path: '/api-testing', icon: Network },
   { name: 'UI Testing', path: '/ui-testing', icon: MousePointerClick },
   { name: 'Performance', path: '/performance', icon: Gauge },
   { name: 'Defects', path: '/defects', icon: Bug },

@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import Card from '@/components/ui/Card.vue'
 import CardContent from '@/components/ui/CardContent.vue'
 import { Line, Bar } from 'vue-chartjs'
@@ -30,8 +30,10 @@ import {
   Cpu,
   FileText,
   AlertTriangle,
-  ArrowRight
+  ArrowRight,
+  Loader2
 } from 'lucide-vue-next'
+import { api } from '@/lib/api'
 
 ChartJS.register(
   CategoryScale,
@@ -45,12 +47,65 @@ ChartJS.register(
   Filler
 )
 
-// Pass Rate Trend (Bar Chart 30 days)
+// Global State
+const suitesCount = ref(0)
+const runs = ref([])
+const loading = ref(true)
+
+const fetchDashboardData = async () => {
+  loading.value = true
+  try {
+    const suites = await api.getSuites()
+    suitesCount.value = suites.length
+
+    runs.value = await api.getAllRuns()
+  } catch (error) {
+    console.error('Failed to fetch dashboard data:', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchDashboardData()
+})
+
+// Calculations for Metrics
+const totalSuites = computed(() => suitesCount.value)
+
+const averagePassRate = computed(() => {
+  if (runs.value.length === 0) return '0%'
+  const sum = runs.value.reduce((acc, r) => acc + parseFloat(r.success_rate), 0)
+  return (sum / runs.value.length).toFixed(1) + '%'
+})
+
+const failedRunsCount = computed(() => {
+  return runs.value.filter(r => r.status === 'failed').length
+})
+
+const averageDuration = computed(() => {
+  if (runs.value.length === 0) return '0s'
+  const sumMs = runs.value.reduce((acc, r) => acc + r.duration_ms, 0)
+  const avgSec = Math.round(sumMs / runs.value.length / 1000)
+  
+  if (avgSec < 60) return `${avgSec}s`
+  const min = Math.floor(avgSec / 60)
+  const sec = avgSec % 60
+  return `${min}m ${sec}s`
+})
+
+// Pass Rate Trend (Bar Chart 30 days) - maps actual runs if available, else falls back to mock
 const passRateData = computed(() => {
-  const data = [70, 94, 82, 95, 94, 91, 95, 86, 92, 96, 93, 76, 92, 97, 94, 89, 82, 92, 90, 94, 88, 93, 91, 95, 93, 80, 92, 94, 93, 91];
+  let data = [70, 94, 82, 95, 94, 91, 95, 86, 92, 96, 93, 76, 92, 97, 94, 89, 82, 92, 90, 94, 88, 93, 91, 95, 93, 80, 92, 94, 93, 91];
+  
+  if (runs.value.length > 0) {
+    const runsSorted = [...runs.value].slice(0, 30).reverse()
+    data = runsSorted.map(r => parseFloat(r.success_rate))
+  }
+  
   const colors = data.map(val => val < 85 ? '#f97316' : '#22c55e');
   return {
-    labels: Array.from({ length: 30 }, (_, i) => `${30 - i}d lalu`),
+    labels: Array.from({ length: data.length }, (_, i) => `${data.length - i} run lalu`),
     datasets: [
       {
         label: 'Pass Rate (%)',
@@ -76,7 +131,7 @@ const passRateOptions = computed(() => ({
   },
   scales: {
     y: {
-      min: 50,
+      min: 0,
       max: 100,
       ticks: {
         callback: (value) => `${value}%`
@@ -123,6 +178,16 @@ const loadStressOptions = computed(() => ({
     }
   }
 }));
+
+const formatWhen = (dateStr) => {
+  const diffMs = new Date() - new Date(dateStr)
+  const diffMin = Math.floor(diffMs / 60000)
+  if (diffMin < 1) return 'Baru saja'
+  if (diffMin < 60) return `${diffMin} menit lalu`
+  const diffHour = Math.floor(diffMin / 60)
+  if (diffHour < 24) return `${diffHour} jam lalu`
+  return new Date(dateStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
+}
 </script>
 
 <template>
@@ -141,10 +206,10 @@ const loadStressOptions = computed(() => ({
       <Card class="border bg-card/45 backdrop-blur-sm">
         <CardContent class="p-5 flex items-center justify-between">
           <div class="space-y-1">
-            <span class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Test Cases</span>
-            <p class="text-3xl font-bold">2,847</p>
+            <span class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Test Suites</span>
+            <p class="text-3xl font-bold">{{ totalSuites }}</p>
             <p class="text-[11px] text-green-600 font-medium flex items-center gap-0.5">
-              <span>+124 minggu ini</span>
+              <span>Skenario terdaftar</span>
             </p>
           </div>
           <div class="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center text-green-600">
@@ -157,9 +222,9 @@ const loadStressOptions = computed(() => ({
         <CardContent class="p-5 flex items-center justify-between">
           <div class="space-y-1">
             <span class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pass Rate</span>
-            <p class="text-3xl font-bold">94.2%</p>
+            <p class="text-3xl font-bold text-green-500">{{ averagePassRate }}</p>
             <p class="text-[11px] text-green-600 font-medium flex items-center gap-0.5">
-              <span>+2.1% vs kemarin</span>
+              <span>Rata-rata success rate</span>
             </p>
           </div>
           <div class="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center text-green-600">
@@ -173,10 +238,10 @@ const loadStressOptions = computed(() => ({
       <Card class="border bg-card/45 backdrop-blur-sm">
         <CardContent class="p-5 flex items-center justify-between">
           <div class="space-y-1">
-            <span class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Failed Tests</span>
-            <p class="text-3xl font-bold text-red-500">47</p>
-            <p class="text-[11px] text-green-600 font-medium flex items-center gap-0.5">
-              <span>-12 vs kemarin</span>
+            <span class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Failed Runs</span>
+            <p class="text-3xl font-bold text-red-500">{{ failedRunsCount }}</p>
+            <p class="text-[11px] text-red-500 font-medium flex items-center gap-0.5">
+              <span>Run di bawah kriteria 95%</span>
             </p>
           </div>
           <div class="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center text-red-500">
@@ -191,9 +256,9 @@ const loadStressOptions = computed(() => ({
         <CardContent class="p-5 flex items-center justify-between">
           <div class="space-y-1">
             <span class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Avg Duration</span>
-            <p class="text-3xl font-bold">8m 42s</p>
+            <p class="text-3xl font-bold">{{ averageDuration }}</p>
             <p class="text-[11px] text-green-600 font-medium flex items-center gap-0.5">
-              <span>-1m 03s lebih cepat</span>
+              <span>Rata-rata eksekusi k6</span>
             </p>
           </div>
           <div class="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-600">
@@ -298,14 +363,35 @@ const loadStressOptions = computed(() => ({
             <tr class="border-b text-muted-foreground text-xs uppercase font-bold">
               <th class="pb-3 pr-2">Run</th>
               <th class="pb-3 px-2">Status</th>
-              <th class="pb-3 px-2">Environment</th>
+              <th class="pb-3 px-2">Type</th>
               <th class="pb-3 px-2">Target</th>
               <th class="pb-3 px-2">Result</th>
               <th class="pb-3 px-2">Duration</th>
               <th class="pb-3 pl-2 text-right">When</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody v-if="runs.length > 0">
+            <tr v-for="run in runs.slice(0, 5)" :key="run.id" class="border-b hover:bg-muted/40 transition-colors">
+              <td class="py-3.5 pr-2">
+                <p class="font-bold text-foreground">{{ run.suite_name || 'Uji Coba k6' }}</p>
+                <p class="text-xs text-muted-foreground">#{{ run.id }}</p>
+              </td>
+              <td class="py-3.5 px-2">
+                <span :class="[
+                  'px-2 py-0.5 rounded text-xs font-semibold',
+                  run.status === 'success' ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-500'
+                ]">{{ run.status === 'success' ? 'Passed' : 'Failed' }}</span>
+              </td>
+              <td class="py-3.5 px-2 text-muted-foreground capitalize">{{ run.test_type }}</td>
+              <td class="py-3.5 px-2 text-muted-foreground">k6 CLI</td>
+              <td class="py-3.5 px-2 font-bold" :class="run.success_rate >= 95 ? 'text-green-600' : 'text-red-500'">
+                {{ run.success_rate }}% <span class="text-muted-foreground text-xs font-normal">rate</span>
+              </td>
+              <td class="py-3.5 px-2 text-muted-foreground">{{ run.duration_ms / 1000 }}s</td>
+              <td class="py-3.5 pl-2 text-right text-muted-foreground">{{ formatWhen(run.executed_at) }}</td>
+            </tr>
+          </tbody>
+          <tbody v-else>
             <tr class="border-b hover:bg-muted/40 transition-colors">
               <td class="py-3.5 pr-2">
                 <p class="font-bold text-foreground">Checkout E2E Smoke</p>
@@ -385,7 +471,7 @@ const loadStressOptions = computed(() => ({
     <div class="space-y-1">
       <div class="flex items-center justify-between">
         <h2 class="text-xl font-bold tracking-tight">API Testing</h2>
-        <router-link to="/api-testing" class="text-xs font-semibold text-primary hover:underline flex items-center gap-0.5">
+        <router-link to="/test-suites" class="text-xs font-semibold text-primary hover:underline flex items-center gap-0.5">
           Detail <ArrowRight :size="12" />
         </router-link>
       </div>
