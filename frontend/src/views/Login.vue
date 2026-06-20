@@ -92,7 +92,7 @@ const handleSocialLogin = (provider) => {
         <div class="flex items-center w-full justify-center relative">
 
             <div class="w-full max-w-md space-y-4 md:space-y-6 lg:space-y-8 z-10">
-        
+
                 <!-- Main Card Component -->
                 <Card class="border shadow-md bg-card/60 backdrop-blur-sm overflow-hidden p-2 md:p-6">
                     <!-- Logo/Header for Mobile views -->
@@ -137,7 +137,7 @@ const handleSocialLogin = (provider) => {
                                 <div class="flex items-center justify-between">
                                     <label for="password"
                                         class="text-xs font-semibold text-foreground/80 tracking-wide uppercase">Password</label>
-                                    <a href="#"
+                                    <a href="#" @click.prevent=""
                                         class="text-xs text-primary font-medium hover:underline hover:text-primary/95">Forgot
                                         Password?</a>
                                 </div>
@@ -174,12 +174,6 @@ const handleSocialLogin = (provider) => {
                                 </template>
                             </button>
                         </form>
-
-                        <!-- Sign Up CTA Link -->
-                        <p class="text-xs text-center text-muted-foreground mt-2 md:mt-4">
-                            Don't have an account?
-                            <router-link to="/register" class="text-primary font-semibold hover:underline">Create an account</router-link>
-                        </p>
                     </CardContent>
                 </Card>
             </div>

@@ -10,11 +10,7 @@ const router = createRouter({
       name: 'Login',
       component: () => import('@/views/Login.vue')
     },
-    {
-      path: '/register',
-      name: 'Register',
-      component: () => import('@/views/Register.vue')
-    },
+
     {
       path: '/',
       component: MainLayout,
@@ -34,14 +30,14 @@ const router = createRouter({
           component: () => import('@/views/Contacts.vue')
         },
         {
+          path: 'test-suites/:id',
+          name: 'ApiTesting',
+          component: () => import('@/views/ApiTesting.vue')
+        },
+        {
           path: 'test-runs',
           name: 'TestRun',
           component: () => import('@/views/Companies.vue')
-        },
-        {
-          path: 'api-testing',
-          name: 'ApiTesting',
-          component: () => import('@/views/ApiTesting.vue')
         },
         {
           path: 'ui-testing',
@@ -99,12 +95,11 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to, from, next) => {
-  // Hanya lakukan pengecekan status login ke backend jika status lokal belum terautentikasi
   if (!isAuthenticated.value) {
     await authState.check()
   }
 
-  const isPublicPage = ['Login', 'Register'].includes(to.name)
+  const isPublicPage = ['Login', 'ForgotPassword'].includes(to.name)
 
   if (!isPublicPage && !isAuthenticated.value) {
     next({ name: 'Login' })

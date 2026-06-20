@@ -1,70 +1,53 @@
-const authService = require('../services/authService');
-const { generateToken } = require('../utils/jwt');
-const logActivity = require('../utils/logger')
-const asyncHandler = require('../utils/asyncHandler')
-const { sendSuccess, sendError } = require('../utils/response')
-require('dotenv').config()
+const UserModel = require('../models/userModel');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const logActivity = require('../utils/logger');
+const asyncHandler = require('../utils/asyncHandler');
+const { sendSuccess, sendError } = require('../utils/response');
 
 const authController = {
-    register: asyncHandler(async (req, res) => {
-
-        const { name, email, password } = req.body;
-
-        if (!name || !email || !password) {
-            return sendError(res, "Please provide name, email, and password", 400);
-        }
-        const userId = await authService.register(name, email, password);
-        await logActivity(userId, 'REGISTER_SUCCESS', req);
-
-        return sendSuccess(res, 'Register Success', {
-            data: {
-                id: userId,
-                email: email,
-                password: password
-            }
-        }, 201);
-    }),
-
+    // === B. LOGIN ===
     login: asyncHandler(async (req, res) => {
-
         const { email, password } = req.body;
 
         if (!email || !password) {
-            return sendError(res, "Email and password is required", 400);
+            return sendError(res, 'Email and password are required', 400);
         }
 
-        try {
-            const user = await authService.login(email, password, req);
-
-            const token = generateToken({ id: user.id, name: user.name, email: user.email });
-
-            res.cookie('token', token, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === "production",
-                sameSite: 'lax',
-                maxAge: 24 * 60 * 60 * 1000
-            });
-
-            await logActivity(user.id, 'LOGIN_SUCCESS', req);
-            return sendSuccess(res, 'Login Success', {
-                data: {
-                    id: user.id,
-                    name: user.name,
-                    email: user.email
-                }
-            }, 200);
-        } catch (error) {
-            if (error.statusCode === 401) {
-                if (error.userId) {
-                    await logActivity(error.userId, 'LOGIN_FAILED_WRONG_PASSWORD', req);
-                }
-                return sendError(res, "Unauthorized", 401);
-            }
-            throw error;
+        const user = await UserModel.findByEmail(email);
+        if (!user) {
+            return sendError(res, 'Unauthorized', 401);
         }
 
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            await logActivity(user.id, 'LOGIN_FAILED_WRONG_PASSWORD', req);
+            return sendError(res, 'Unauthorized', 401);
+        }
+
+        const token = jwt.sign(
+            { id: user.id, name: user.name, email: user.email },
+            process.env.JWT_SECRET,
+            { expiresIn: "24h" }
+        );
+
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: 'lax',
+            maxAge: 24 * 60 * 60 * 1000
+        });
+
+        await logActivity(user.id, 'LOGIN_SUCCESS', req);
+
+        return sendSuccess(res, 'Login Success', {
+            id: user.id,
+            name: user.name,
+            email: user.email
+        });
     }),
 
+    // === C. LOGOUT ===
     logout: asyncHandler(async (req, res) => {
         const userId = req.user ? req.user.id : null;
 
@@ -77,10 +60,9 @@ const authController = {
         return sendSuccess(res, 'Logout Success');
     }),
 
+    // === D. CHECK AUTH ===
     checkAuth: asyncHandler(async (req, res) => {
-        return sendSuccess(res, 'Check Auth Success', {
-            user: req.user
-        }, 200);
+        return sendSuccess(res, 'Authentication valid', req.user);
     })
 };
 
